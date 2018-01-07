@@ -24,15 +24,12 @@ class Config {
     var water = false
 
     fun isBlacklisted(vararg effects: PotionEffect): Boolean {
+        // empty list returns as forbidden always for some reason.
         if (effects.isEmpty()) return water && blacklist // we're a dry county
 
         val list: (PotionEffect) -> Boolean = { this.effects.contains(it.type) }
 
-        val allowed = if (blacklist) effects.any(list) else effects.none(list)
-
-        System.out.println(allowed)
-
-        return allowed
+        return if (blacklist) effects.any(list) else effects.none(list)
     }
 }
 

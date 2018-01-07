@@ -3,7 +3,6 @@ package mnm.plugins.prohibition;
 import com.google.inject.Inject
 import ninja.leaping.configurate.commented.CommentedConfigurationNode
 import ninja.leaping.configurate.loader.ConfigurationLoader
-import org.slf4j.Logger
 import org.spongepowered.api.config.DefaultConfig
 import org.spongepowered.api.data.key.Keys
 import org.spongepowered.api.entity.living.player.Player
@@ -18,6 +17,7 @@ import org.spongepowered.api.event.item.inventory.UseItemStackEvent
 import org.spongepowered.api.item.ItemType
 import org.spongepowered.api.item.ItemTypes
 import org.spongepowered.api.item.inventory.ItemStackSnapshot
+import org.spongepowered.api.plugin.Dependency
 import org.spongepowered.api.plugin.Plugin
 import org.spongepowered.api.service.permission.Subject
 import org.spongepowered.api.text.Text
@@ -29,8 +29,8 @@ import org.spongepowered.api.text.format.TextStyles
         id = "prohibition",
         name = "Prohibition",
         description = "Blocks potions",
-        authors = ["killjoy1221"]
-//        dependencies = [Dependency(id = "spotlin")]
+        authors = ["killjoy1221"],
+        dependencies = [(Dependency(id = "spotlin"))]
 )
 class Prohibition {
 
@@ -40,14 +40,14 @@ class Prohibition {
         const val PERM_BYPASS_LINGER = "prohibition.bypass.linger"
     }
 
-    @Inject
-    lateinit var logger: Logger
+//    @Inject
+//    lateinit var logger: Logger
 
     @DefaultConfig(sharedRoot = true)
     @Inject
     lateinit var configLoader: ConfigurationLoader<CommentedConfigurationNode>
 
-    lateinit var config: Config
+    private lateinit var config: Config
 
 
     @Listener
@@ -61,7 +61,7 @@ class Prohibition {
         loadConfig()
     }
 
-    fun loadConfig() {
+    private fun loadConfig() {
         val node = configLoader.load()
         config = node["prohibition"].getValue<Config>(::Config)
         node["prohibition"].setValue<Config>(config)
@@ -90,12 +90,12 @@ class Prohibition {
 
             // this is the easy part
             val effects = itemStack.get(Keys.POTION_EFFECTS).orElseGet { emptyList() }
-            val cfg = getConfig(itemStack.type)
+            val cfg = isEnabled(itemStack.type)
             if (cfg && !player.hasPermission(perm) && config.isBlacklisted(*effects.toTypedArray())) {
 
                 player.sendMessage(ChatTypes.ACTION_BAR, Text.of(
                         TextStyles.BOLD, TextColors.DARK_RED,
-                        effects.filter { config.isBlacklisted(it) }.firstOrNull()?.type ?: "Water",
+                        effects.firstOrNull { config.isBlacklisted(it) }?.type ?: "Water",
                         " potion is not allowed"))
                 return true
             }
@@ -111,7 +111,7 @@ class Prohibition {
             val stack = potion.item().get()
             val bypass = getBypassPermission(stack.type)
             val perm = if (shooter is Subject) shooter.hasPermission(bypass!!) else false
-            if (perm && getConfig(stack.type)) {
+            if (perm && isEnabled(stack.type)) {
                 stack.get(Keys.POTION_EFFECTS).ifPresent {
                     val effects = it.filter { config.isBlacklisted() }
                     val otherStack = ItemStack {
@@ -127,7 +127,7 @@ class Prohibition {
 
     }
 
-    private fun getConfig(stack: ItemType): Boolean {
+    private fun isEnabled(stack: ItemType): Boolean {
         return when (stack) {
             ItemTypes.POTION -> config.drinks
             ItemTypes.SPLASH_POTION -> config.splash
@@ -137,7 +137,7 @@ class Prohibition {
     }
 
     private fun getBypassPermission(stack: ItemType): String? {
-        // Return self if potion, null if not
+        // Return a permission if potion, null if not
         return when (stack) {
             ItemTypes.POTION -> PERM_BYPASS_DRINKS
             ItemTypes.SPLASH_POTION -> PERM_BYPASS_SPLASH
